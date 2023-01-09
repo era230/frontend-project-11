@@ -1,4 +1,4 @@
-const handleProcessState = (elements, processState) => {
+const handleProcessState = (elements, processState, i18nInstance) => {
   switch (processState) {
     case 'filling':
       break;
@@ -8,7 +8,7 @@ const handleProcessState = (elements, processState) => {
       input.classList.remove('is-invalid');
       feedbackContainer.classList.remove('text-danger');
       feedbackContainer.classList.add('text-success');
-      feedbackContainer.textContent = 'RSS успешно загружен';
+      feedbackContainer.textContent = i18nInstance.t('feedback.succeed');
       break;
     }
 
@@ -26,14 +26,14 @@ const renderError = (elements, value) => {
   feedbackContainer.textContent = value;
 };
 
-const render = (elements) => (path, value) => {
+const render = (elements, i18nInstance) => (path, value) => {
   switch (path) {
     case 'form.processState':
-      handleProcessState(elements, value);
+      handleProcessState(elements, value, i18nInstance);
       break;
 
     case 'form.error':
-      renderError(elements, value);
+      renderError(elements, value, i18nInstance);
       break;
 
     default:
