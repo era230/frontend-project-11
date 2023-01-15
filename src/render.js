@@ -1,4 +1,4 @@
-import { createFeeds, createPosts } from './utils';
+import { renderFeeds, renderPosts } from './utils';
 
 const handleProcessState = (elements, processState, i18nInstance) => {
   const { input, feedbackContainer } = elements;
@@ -11,7 +11,7 @@ const handleProcessState = (elements, processState, i18nInstance) => {
       input.classList.remove('is-invalid');
       feedbackContainer.classList.remove('text-danger');
       feedbackContainer.classList.add('text-success');
-      feedbackContainer.textContent = i18nInstance.t('feedback.success');
+      feedbackContainer.textContent = i18nInstance.t('form.success');
       break;
     }
 
@@ -38,21 +38,21 @@ const renderError = (elements, error, i18nInstance) => {
       input.classList.remove('is-invalid');
       feedbackContainer.classList.remove('text-success');
       feedbackContainer.classList.add('text-danger');
-      feedbackContainer.textContent = i18nInstance.t('feedback.fail.networkError');
+      feedbackContainer.textContent = i18nInstance.t('content.fail.networkError');
       break;
     }
 
     default:
-      throw new Error(`Unknown error: ${error.message}`);
+      input.classList.remove('is-invalid');
+      feedbackContainer.classList.remove('text-success');
+      feedbackContainer.classList.add('text-danger');
+      if (error.message === i18nInstance.t('content.fail.invalidRss')) {
+        feedbackContainer.textContent = i18nInstance.t('content.fail.invalidRss');
+      } else {
+        feedbackContainer.textContent = i18nInstance.t('content.fail.unknownError');
+      }
+      break;
   }
-};
-
-const renderPosts = (postsContainer, posts, i18nInstance) => {
-  postsContainer.append(createPosts(i18nInstance, posts));
-};
-
-const renderFeeds = (feedsContainer, feed, i18nInstance) => {
-  feedsContainer.append(createFeeds(i18nInstance, feed));
 };
 
 const render = (elements, i18nInstance) => (path, value) => {
@@ -61,15 +61,16 @@ const render = (elements, i18nInstance) => (path, value) => {
       handleProcessState(elements, value, i18nInstance);
       break;
 
-    case 'error':
+    case 'form.formError':
+    case 'content.error':
       renderError(elements, value, i18nInstance);
       break;
 
-    case 'posts':
+    case 'content.posts':
       renderPosts(elements.postsContainer, value, i18nInstance);
       break;
 
-    case 'feeds':
+    case 'content.feeds':
       renderFeeds(elements.feedsContainer, value, i18nInstance);
       break;
 

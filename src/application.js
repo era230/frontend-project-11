@@ -1,12 +1,21 @@
 import i18next from 'i18next';
 import * as yup from 'yup';
-import { setLocale } from 'yup';
 import onChange from 'on-change';
 import axios from 'axios';
 import uniqueId from 'lodash/uniqueId';
 import render from './render';
 import ru from './locales/ru';
 import parse from './parser';
+
+const makeSchema = (i18nInstance, existedUrls) => {
+  const schema = yup
+    .string()
+    .trim()
+    .required(i18nInstance.t('form.fail.requiredUrl'))
+    .url(i18nInstance.t('form.fail.invalidUrl'))
+    .notOneOf(existedUrls, i18nInstance.t('form.fail.doubleUrl'));
+  return schema;
+};
 
 export default () => {
   const i18nInstance = i18next.createInstance();
@@ -29,50 +38,54 @@ export default () => {
 
   const state = onChange({
     form: {
-      processState: 'initial',
+      formState: 'initial',
+      formError: {},
+      existedUrls: [],
     },
-    error: null,
-    feeds: [],
-    posts: [],
+    content: {
+      feeds: [],
+      posts: [],
+      error: {},
+    },
   }, render(elements, i18nInstance));
-
-  setLocale({
-    string: {
-      url: i18nInstance.t('feedback.fail.invalidUrl'),
-      notOneOf: i18nInstance.t('feedback.fail.doubleUrl'),
-    },
-  });
-
-  const existedUrls = [];
-
-  const schema = yup.string().trim().required(i18nInstance.t('feedback.fail.requiredUrl')).url()
-    .notOneOf(existedUrls);
 
   elements.form.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const url = formData.get('url');
+    const schema = makeSchema(i18nInstance, state.form.existedUrls);
     schema.validate(url)
       .then((v) => {
         e.target.reset();
-        existedUrls.push(v);
+        state.form.existedUrls = [...state.form.existedUrls, v];
       })
-      .then(() => axios.get(`https://allorigins.hexlet.app/get?url=${encodeURIComponent(url)}`))
+      .then(() => axios.get(`https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`))
       .then((response) => {
-        const { feed, posts } = parse(response.data.contents);
+        state.form.processState = 'sent';
+        const { feed, posts } = parse(i18nInstance, response.data.contents);
         feed.id = uniqueId();
         posts.forEach((item) => {
           const post = item;
           post.feedId = feed.id;
         });
-        state.form.processState = 'sent';
-        state.feeds = [...state.feeds, feed];
-        state.posts = [...state.posts, ...posts];
+        state.content.feeds = [...state.content.feeds, feed];
+        state.content.posts = [...state.content.posts, ...posts];
       })
       .catch((err) => {
-        state.error = err;
-        state.form.processState = 'error';
-        throw err;
+        switch (err.name) {
+          case 'ValidationError':
+            state.form.processState = 'error';
+            state.form.formError = err;
+            throw err;
+
+          case 'AxiosError':
+            state.content.error = err;
+            throw err;
+
+          default:
+            state.content.error = err;
+            throw err;
+        }
       });
   });
 };
