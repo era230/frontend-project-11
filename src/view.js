@@ -1,8 +1,8 @@
 import { renderFeeds, renderPosts } from './render';
 
-const handleProcessState = (elements, processState, i18nInstance) => {
+const handleFormProcessState = (elements, state, processState) => {
   const { input, feedbackContainer } = elements;
-
+  const { i18nInstance } = state;
   switch (processState) {
     case 'initial':
       break;
@@ -23,8 +23,31 @@ const handleProcessState = (elements, processState, i18nInstance) => {
   }
 };
 
-const renderError = (elements, error, i18nInstance) => {
+const handleContentProcessState = (elements, state, processState) => {
+  switch (processState) {
+    case 'initial':
+      break;
+
+    case 'added':
+      renderFeeds(elements.feedsContainer, state);
+      renderPosts(elements.postsContainer, state);
+      break;
+
+    case 'updated':
+      renderPosts(elements.postsContainer, state);
+      break;
+
+    case 'error':
+      break;
+
+    default:
+      throw new Error(`Unknown process state: ${processState}`);
+  }
+};
+
+const renderError = (elements, state, error) => {
   const { input, feedbackContainer } = elements;
+  const { i18nInstance } = state;
   switch (error.name) {
     case 'ValidationError': {
       input.classList.add('is-invalid');
@@ -55,23 +78,18 @@ const renderError = (elements, error, i18nInstance) => {
   }
 };
 
-const render = (elements, i18nInstance) => (path, value) => {
+const render = (elements, state, path, value) => {
   switch (path) {
     case 'form.processState':
-      handleProcessState(elements, value, i18nInstance);
+      handleFormProcessState(elements, state, value);
       break;
 
-    case 'form.error':
-    case 'content.error':
-      renderError(elements, value, i18nInstance);
+    case 'content.processState':
+      handleContentProcessState(elements, state, value);
       break;
 
-    case 'content.posts':
-      renderPosts(elements.postsContainer, value, i18nInstance);
-      break;
-
-    case 'content.feeds':
-      renderFeeds(elements.feedsContainer, value, i18nInstance);
+    case 'error':
+      renderError(elements, state, value);
       break;
 
     default:

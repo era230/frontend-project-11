@@ -2,7 +2,6 @@ import i18next from 'i18next';
 import * as yup from 'yup';
 import onChange from 'on-change';
 import axios from 'axios';
-import uniqueId from 'lodash/uniqueId';
 import findIndex from 'lodash/findIndex';
 import render from './view';
 import ru from './locales/ru';
@@ -18,49 +17,50 @@ const makeSchema = (i18nInstance, existedUrls) => {
   return schema;
 };
 
-const addRss = (elements, watchedState, i18nInstance) => {
-  const state = watchedState;
+const addRss = (elements, state) => {
+  const { i18nInstance } = state;
+  const watchedState = state;
   elements.form.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const url = formData.get('url');
-    const currentUrl = { url, id: uniqueId() };
-    const urls = state.form.existedUrls.map((item) => item.url);
-    return makeSchema(i18nInstance, urls)
+    return makeSchema(i18nInstance, watchedState.form.existedUrls)
       .validate(url)
       .then(() => {
         e.target.reset();
-        state.form.existedUrls = [...state.form.existedUrls, currentUrl];
+        watchedState.form.existedUrls = [...watchedState.form.existedUrls, url];
         return axios.get(`https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`);
       })
       .then((response) => {
-        state.form.processState = 'sent';
-        const { feed, posts } = getRssData(i18nInstance, response.data.contents, currentUrl.id);
-        state.content.feeds = [feed, ...state.content.feeds];
-        state.content.posts = [...posts, ...state.content.posts];
+        watchedState.form.processState = 'sent';
+        const { feed, posts } = getRssData(response.data.contents, url, i18nInstance);
+        watchedState.content.feeds = [feed, ...state.content.feeds];
+        watchedState.content.posts = [...posts, ...state.content.posts];
+        watchedState.content.processState = 'added';
       })
       .catch((err) => {
         switch (err.name) {
           case 'ValidationError':
-            state.form.processState = 'error';
-            state.form.error = err;
+            watchedState.form.processState = 'error';
+            watchedState.error = err;
             throw err;
 
           case 'AxiosError':
           default:
-            state.content.error = err;
-            throw err;
+            watchedState.content.processState = 'error';
+            watchedState.error = err;
         }
       });
   });
 };
 
-const updateRss = (watchedState, i18nInstance) => {
-  const state = watchedState;
-  const promises = state.form.existedUrls.map((url) => axios.get(`https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url.url)}`)
+const updateRss = (state) => {
+  const { i18nInstance } = state;
+  const watchedState = state;
+  const promises = watchedState.form.existedUrls.map((url) => axios.get(`https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`)
     .then((response) => {
-      const { posts } = getRssData(i18nInstance, response.data.contents, url.id);
-      const existedPosts = state.content.posts.filter((post) => post.id === url.id);
+      const { posts } = getRssData(response.data.contents, url, i18nInstance);
+      const existedPosts = watchedState.content.posts.filter((post) => post.id === url);
       const { title } = existedPosts[0];
       const index = findIndex(posts, { title });
       const newPosts = posts.slice(0, index);
@@ -69,12 +69,17 @@ const updateRss = (watchedState, i18nInstance) => {
   return Promise.all(promises).then((newPosts) => {
     const updatedNewPosts = newPosts.flat();
     if (updatedNewPosts.length > 0) {
-      state.content.posts = [...updatedNewPosts, ...state.content.posts];
+      watchedState.content.posts = [...updatedNewPosts, ...watchedState.content.posts];
+      watchedState.content.processState = 'updated';
     }
   })
-    .then(() => setTimeout(() => updateRss(watchedState, i18nInstance), 5000))
+    .then(() => {
+      watchedState.content.processState = 'initial';
+    })
+    .then(() => setTimeout(() => updateRss(watchedState), 5000))
     .catch((e) => {
-      state.content.error = e;
+      watchedState.content.processState = 'error';
+      watchedState.error = e;
       throw e;
     });
 };
@@ -98,20 +103,24 @@ export default () => {
     postsContainer: document.querySelector('.col-md-10.posts'),
   };
 
-  const state = onChange({
+  const state = {
     form: {
       processState: 'initial',
-      error: {},
       existedUrls: [],
     },
     content: {
+      processState: 'initial',
       feeds: [],
       posts: [],
-      uiState: [],
-      error: {},
     },
-  }, render(elements, i18nInstance));
+    i18nInstance,
+    error: {},
+  };
 
-  addRss(elements, state, i18nInstance);
-  updateRss(state, i18nInstance);
+  const watchedState = onChange(state, (path, value) => {
+    render(elements, state, path, value);
+  });
+
+  addRss(elements, watchedState);
+  updateRss(watchedState);
 };

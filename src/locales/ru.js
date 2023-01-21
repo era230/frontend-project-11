@@ -3,7 +3,7 @@ export default {
     form: {
       success: 'RSS успешно загружен',
       fail: {
-        requiredUrl: 'Ссылка должна быть валидным URL',
+        requiredUrl: 'Не должно быть пустым',
         doubleUrl: 'RSS уже существует',
         invalidUrl: 'Ссылка должна быть валидным URL',
       },
