@@ -1,13 +1,19 @@
 import { renderFeeds, renderPosts } from './render';
 
-const handleFormProcessState = (elements, state, processState) => {
-  const { input, feedbackContainer } = elements;
-  const { i18nInstance } = state;
+const handleFormProcessState = (elements, processState, i18nInstance) => {
+  const { input, submitButton, feedbackContainer } = elements;
   switch (processState) {
     case 'initial':
       break;
 
+    case 'sending':
+      submitButton.disabled = true;
+      input.disable = true;
+      break;
+
     case 'sent': {
+      submitButton.disabled = false;
+      input.disable = false;
       input.classList.remove('is-invalid');
       feedbackContainer.classList.remove('text-danger');
       feedbackContainer.classList.add('text-success');
@@ -23,18 +29,18 @@ const handleFormProcessState = (elements, state, processState) => {
   }
 };
 
-const handleContentProcessState = (elements, state, processState) => {
+const handleContentProcessState = (elements, state, processState, i18nInstance) => {
   switch (processState) {
     case 'initial':
       break;
 
     case 'added':
-      renderFeeds(elements.feedsContainer, state);
-      renderPosts(elements.postsContainer, state);
+      renderFeeds(elements.feedsContainer, state, i18nInstance);
+      renderPosts(elements.postsContainer, state, i18nInstance);
       break;
 
     case 'updated':
-      renderPosts(elements.postsContainer, state);
+      renderPosts(elements.postsContainer, state, i18nInstance);
       break;
 
     case 'error':
@@ -45,16 +51,15 @@ const handleContentProcessState = (elements, state, processState) => {
   }
 };
 
-const renderError = (elements, state, error) => {
+const renderError = (elements, error, i18nInstance) => {
   const { input, feedbackContainer } = elements;
-  const { i18nInstance } = state;
   switch (error.name) {
     case 'ValidationError': {
       input.classList.add('is-invalid');
       feedbackContainer.classList.remove('text-success');
       feedbackContainer.classList.add('text-danger');
       feedbackContainer.textContent = error.message;
-      break;
+      throw error;
     }
 
     case 'AxiosError': {
@@ -62,7 +67,7 @@ const renderError = (elements, state, error) => {
       feedbackContainer.classList.remove('text-success');
       feedbackContainer.classList.add('text-danger');
       feedbackContainer.textContent = i18nInstance.t('content.fail.networkError');
-      break;
+      throw error;
     }
 
     default:
@@ -74,22 +79,23 @@ const renderError = (elements, state, error) => {
       } else {
         feedbackContainer.textContent = i18nInstance.t('content.fail.unknownError');
       }
-      break;
+      throw error;
   }
 };
 
-const render = (elements, state, path, value) => {
+const render = (elements, state, path, value, i18nInstance) => {
   switch (path) {
     case 'form.processState':
-      handleFormProcessState(elements, state, value);
+      handleFormProcessState(elements, value, i18nInstance);
       break;
 
     case 'content.processState':
-      handleContentProcessState(elements, state, value);
+      handleContentProcessState(elements, state, value, i18nInstance);
       break;
 
-    case 'error':
-      renderError(elements, state, value);
+    case 'form.error':
+    case 'content.error':
+      renderError(elements, value, i18nInstance);
       break;
 
     default:

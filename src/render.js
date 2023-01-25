@@ -32,7 +32,7 @@ const makeFeedsUl = (feeds) => feeds.map(({ title, description }) => {
   return li;
 });
 
-const makePostsUl = (i18nInstance, posts) => posts.map((post) => {
+const makePostsUl = (posts, i18nInstance) => posts.map((post) => {
   const {
     title, link, description, postId,
   } = post;
@@ -62,8 +62,7 @@ const makePostsUl = (i18nInstance, posts) => posts.map((post) => {
   return li;
 });
 
-const renderFeeds = (feedsContainer, state) => {
-  const { i18nInstance } = state;
+const renderFeeds = (feedsContainer, state, i18nInstance) => {
   const { feeds } = state.content;
   let cardEl = feedsContainer.querySelector('.card.border-0');
   if (!cardEl) {
@@ -77,8 +76,7 @@ const renderFeeds = (feedsContainer, state) => {
   return cardEl;
 };
 
-const renderPosts = (postsContainer, state) => {
-  const { i18nInstance } = state;
+const renderPosts = (postsContainer, state, i18nInstance) => {
   const { posts } = state.content;
   let cardEl = postsContainer.querySelector('.card.border-0');
   if (!cardEl) {
@@ -87,7 +85,7 @@ const renderPosts = (postsContainer, state) => {
   }
   const ul = postsContainer.querySelector('ul');
   ul.innerHTML = '';
-  const postsUl = makePostsUl(i18nInstance, posts);
+  const postsUl = makePostsUl(posts, i18nInstance);
   postsUl.forEach((li) => ul.append(li));
   return cardEl;
 };

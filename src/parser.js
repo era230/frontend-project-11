@@ -1,12 +1,8 @@
 import uniqueId from 'lodash/uniqueId';
 
-const parse = (data) => {
-  const parser = new DOMParser();
-  return parser.parseFromString(data, 'text/xml');
-};
-
 export default (data, url, i18nInstance) => {
-  const parseData = parse(data);
+  const parser = new DOMParser();
+  const parseData = parser.parseFromString(data, 'text/xml');
   if (!parseData.querySelector('rss')) {
     throw new Error(i18nInstance.t('content.fail.invalidRss'));
   }
