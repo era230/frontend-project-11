@@ -133,6 +133,5 @@ export default () => {
 
       addRss(elements, watchedState, i18nInstance);
       updateRss(watchedState, i18nInstance);
-      document.getElementById('output').innerHTML = i18next.t('key');
     });
 };

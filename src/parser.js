@@ -12,9 +12,11 @@ export default (data, url, i18nInstance) => {
   const postsData = parseData.querySelectorAll('item');
   const posts = Array.from(postsData)
     .map((post) => {
+      console.log(post);
       const title = post.querySelector('title').textContent;
       const link = post.querySelector('link').textContent;
-      const description = post.querySelector('description').textContent;
+      const description = post.querySelector('description') ? post.querySelector('description').textContent : title;
+      console.log(description);
       return {
         title, link, description, id: url, postId: uniqueId(),
       };
