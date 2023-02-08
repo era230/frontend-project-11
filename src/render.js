@@ -34,29 +34,14 @@ const makeFeedsUl = (feeds) => feeds.map(({ title, description }) => {
 
 const makePostsUl = (posts, i18nInstance) => posts.map((post) => {
   const {
-    title, link, description, postId,
+    title, link, postId,
   } = post;
   const li = makeEl('li', ['list-group-item', 'd-flex', 'justify-content-between', 'align-items-start', 'border-0', 'border-end-0']);
   const linkEl = makeEl('a', ['fw-bold'], [{ name: 'target', value: '_blank' }, { name: 'rel', value: 'noopener' }, { name: 'rel', value: 'noreferrer' }]);
   linkEl.setAttribute('href', link);
   linkEl.setAttribute('data-id', postId);
   linkEl.textContent = title;
-  linkEl.addEventListener('click', () => {
-    linkEl.classList.remove('fw-bold');
-    linkEl.classList.add('fw-normal', 'link-secondary');
-  });
   const button = makeEl('button', ['btn', 'btn-outline-primary', 'btn-sm'], [{ name: 'type', value: 'button' }, { name: 'data-id', value: postId }, { name: 'data-bs-toggle', value: 'modal' }, { name: 'data-bs-target', value: '#modal' }]);
-  button.addEventListener('click', (e) => {
-    e.preventDefault();
-    const modalTitle = document.querySelector('.modal-title');
-    const modalBody = document.querySelector('.modal-body');
-    const modalLink = document.querySelector('.btn-primary.full-article');
-    modalLink.setAttribute('href', link);
-    linkEl.classList.remove('fw-bold');
-    linkEl.classList.add('fw-normal', 'link-secondary');
-    modalTitle.textContent = title;
-    modalBody.textContent = description;
-  });
   button.textContent = i18nInstance.t('content.button');
   li.append(linkEl, button);
   return li;

@@ -59,7 +59,7 @@ const renderError = (elements, error, i18nInstance) => {
       feedbackContainer.classList.remove('text-success');
       feedbackContainer.classList.add('text-danger');
       feedbackContainer.textContent = error.message;
-      throw error;
+      break;
     }
 
     case 'AxiosError': {
@@ -67,7 +67,7 @@ const renderError = (elements, error, i18nInstance) => {
       feedbackContainer.classList.remove('text-success');
       feedbackContainer.classList.add('text-danger');
       feedbackContainer.textContent = i18nInstance.t('content.fail.networkError');
-      throw error;
+      break;
     }
 
     default:
@@ -79,8 +79,21 @@ const renderError = (elements, error, i18nInstance) => {
       } else {
         feedbackContainer.textContent = i18nInstance.t('content.fail.unknownError');
       }
-      throw error;
+      break;
   }
+};
+
+const renderLinks = (postsContainer, state, id) => {
+  const link = postsContainer.querySelector(`a[data-id="${id}"]`);
+  link.classList.remove('fw-bold');
+  link.classList.add('fw-normal', 'link-secondary');
+  const { title, description } = state.content.posts.find((item) => item.postId === id);
+  const modalTitle = document.querySelector('.modal-title');
+  const modalBody = document.querySelector('.modal-body');
+  const modalLink = document.querySelector('.btn-primary.full-article');
+  modalLink.setAttribute('href', link);
+  modalTitle.textContent = title;
+  modalBody.textContent = description;
 };
 
 const render = (elements, state, path, value, i18nInstance) => {
@@ -96,6 +109,10 @@ const render = (elements, state, path, value, i18nInstance) => {
     case 'form.error':
     case 'content.error':
       renderError(elements, value, i18nInstance);
+      break;
+
+    case 'uiState.currentPost':
+      renderLinks(elements.postsContainer, state, value);
       break;
 
     default:

@@ -3,6 +3,7 @@ import * as yup from 'yup';
 import onChange from 'on-change';
 import axios from 'axios';
 import findIndex from 'lodash/findIndex';
+import uniqueId from 'lodash/uniqueId';
 import render from './view';
 import ru from './locales/ru';
 import parse from './parser';
@@ -17,11 +18,20 @@ const makeSchema = (existedUrls, i18nInstance) => {
   return schema;
 };
 
-const proxyUrl = (url) => {
+const getProxyUrl = (url) => {
   const proxy = new URL('./get', 'https://allorigins.hexlet.app');
   proxy.searchParams.set('disableCache', 'true');
   proxy.searchParams.set('url', url);
   return proxy.toString();
+};
+
+const handleClick = (postsContainer, state) => {
+  const watchedState = state;
+  postsContainer.addEventListener('click', (e) => {
+    const li = e.target.closest('li');
+    const postId = li.querySelector('a').dataset.id;
+    watchedState.uiState.currentPost = postId;
+  });
 };
 
 const addRss = (elements, state, i18nInstance) => {
@@ -30,17 +40,23 @@ const addRss = (elements, state, i18nInstance) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const url = formData.get('url');
-    return makeSchema(watchedState.form.existedUrls, i18nInstance)
+    const existedUrls = watchedState.content.feeds.map((feed) => feed.id);
+    return makeSchema(existedUrls, i18nInstance)
       .validate(url)
       .then(() => {
-        watchedState.form.existedUrls = [...watchedState.form.existedUrls, url];
         watchedState.form.processState = 'sending';
-        return axios.get(proxyUrl(url));
+        return axios.get(getProxyUrl(url));
       })
       .then((response) => {
         watchedState.form.processState = 'sent';
         e.target.reset();
-        const { feed, posts } = parse(response.data.contents, url, i18nInstance);
+        const { feed, posts } = parse(response.data.contents, i18nInstance);
+        feed.id = url;
+        posts.forEach((item) => {
+          const post = item;
+          post.id = url;
+          post.postId = uniqueId();
+        });
         watchedState.content.feeds = [feed, ...state.content.feeds];
         watchedState.content.posts = [...posts, ...state.content.posts];
         watchedState.content.processState = 'added';
@@ -63,9 +79,15 @@ const addRss = (elements, state, i18nInstance) => {
 
 const updateRss = (state, i18nInstance) => {
   const watchedState = state;
-  const promises = watchedState.form.existedUrls.map((url) => axios.get(proxyUrl(url))
+  const existedUrls = watchedState.content.feeds.map((feed) => feed.id);
+  const promises = existedUrls.map((url) => axios.get(getProxyUrl(url))
     .then((response) => {
-      const { posts } = parse(response.data.contents, url, i18nInstance);
+      const { posts } = parse(response.data.contents, i18nInstance);
+      posts.forEach((item) => {
+        const post = item;
+        post.id = url;
+        post.postId = uniqueId();
+      });
       const existedPosts = watchedState.content.posts.filter((post) => post.id === url);
       let newPosts;
       if (existedPosts.length === 0) {
@@ -84,13 +106,13 @@ const updateRss = (state, i18nInstance) => {
       watchedState.content.processState = 'updated';
     }
   })
-    .then(() => {
-      watchedState.content.processState = 'initial';
-      return setTimeout(() => updateRss(watchedState), 5000);
-    })
     .catch((e) => {
       watchedState.content.processState = 'error';
       watchedState.content.error = e;
+    })
+    .finally(() => {
+      watchedState.content.processState = 'initial';
+      return setTimeout(() => updateRss(watchedState), 5000);
     });
 };
 
@@ -116,14 +138,16 @@ export default () => {
       const state = {
         form: {
           processState: 'initial',
-          existedUrls: [],
-          error: {},
+          error: null,
         },
         content: {
           processState: 'initial',
           feeds: [],
           posts: [],
-          error: {},
+          error: null,
+        },
+        uiState: {
+          currentPost: '',
         },
       };
 
@@ -132,6 +156,7 @@ export default () => {
       });
 
       addRss(elements, watchedState, i18nInstance);
+      handleClick(elements.postsContainer, watchedState);
       updateRss(watchedState, i18nInstance);
     });
 };
