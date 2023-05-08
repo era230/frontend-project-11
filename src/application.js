@@ -1,20 +1,20 @@
+/* eslint-disable no-param-reassign */
 import i18next from 'i18next';
 import * as yup from 'yup';
 import onChange from 'on-change';
 import axios from 'axios';
-import findIndex from 'lodash/findIndex';
 import uniqueId from 'lodash/uniqueId';
 import render from './view';
 import ru from './locales/ru';
 import parse from './parser';
 
-const makeSchema = (existedUrls, i18nInstance) => {
+const makeSchema = (existedUrls) => {
   const schema = yup
     .string()
     .trim()
-    .required(i18nInstance.t('form.fail.requiredUrl'))
-    .url(i18nInstance.t('form.fail.invalidUrl'))
-    .notOneOf(existedUrls, i18nInstance.t('form.fail.doubleUrl'));
+    .required('form.fail.requiredUrl')
+    .url('form.fail.invalidUrl')
+    .notOneOf(existedUrls, 'form.fail.doubleUrl');
   return schema;
 };
 
@@ -25,100 +25,89 @@ const getProxyUrl = (url) => {
   return proxy.toString();
 };
 
-const handleClick = (postsContainer, state) => {
-  const watchedState = state;
+const viewPost = (postsContainer, state) => {
   postsContainer.addEventListener('click', (e) => {
     const li = e.target.closest('li');
     const postId = li.querySelector('a').dataset.id;
-    watchedState.uiState.currentPost = postId;
+    state.uiState.currentPost = postId;
+    state.uiState.viewedPosts = [postId, ...state.uiState.viewedPosts];
   });
 };
 
-const addRss = (elements, state, i18nInstance) => {
-  const watchedState = state;
+const addRss = (elements, state) => {
   elements.form.addEventListener('submit', (e) => {
     e.preventDefault();
+    state.addRssProcess = 'adding';
     const formData = new FormData(e.target);
     const url = formData.get('url');
-    const existedUrls = watchedState.content.feeds.map((feed) => feed.id);
-    return makeSchema(existedUrls, i18nInstance)
+    const existedUrls = state.content.feeds.map((feed) => feed.id);
+    return makeSchema(existedUrls)
       .validate(url)
       .then(() => {
-        watchedState.form.processState = 'sending';
+        state.formValidationProcess = 'valid';
         return axios.get(getProxyUrl(url));
       })
       .then((response) => {
-        watchedState.form.processState = 'sent';
         e.target.reset();
-        const { feed, posts } = parse(response.data.contents, i18nInstance);
+        const { feed, posts } = parse(response.data.contents);
         feed.id = url;
         posts.forEach((item) => {
           const post = item;
           post.id = url;
           post.postId = uniqueId();
         });
-        watchedState.content.feeds = [feed, ...state.content.feeds];
-        watchedState.content.posts = [...posts, ...state.content.posts];
-        watchedState.content.processState = 'added';
+        state.addRssProcess = 'successful';
+        state.content.feeds = [feed, ...state.content.feeds];
+        state.content.posts = [...posts, ...state.content.posts];
       })
       .catch((err) => {
         switch (err.name) {
           case 'ValidationError':
-            watchedState.form.processState = 'error';
-            watchedState.form.error = err;
+            state.formValidationProcess = 'invalid';
+            state.formValidationError = err;
             break;
 
           case 'AxiosError':
           default:
-            watchedState.content.processState = 'error';
-            watchedState.content.error = err;
+            state.addRssProcess = 'failed';
+            state.addRssError = err;
         }
       });
   });
 };
 
-const updateRss = (state, i18nInstance) => {
-  const watchedState = state;
-  const existedUrls = watchedState.content.feeds.map((feed) => feed.id);
+const updateRss = (state) => {
+  const existedUrls = state.content.feeds.map((feed) => feed.id);
   const promises = existedUrls.map((url) => axios.get(getProxyUrl(url))
     .then((response) => {
-      const { posts } = parse(response.data.contents, i18nInstance);
-      posts.forEach((item) => {
+      const { posts } = parse(response.data.contents);
+      const existedPosts = state.content.posts.filter((post) => post.id === url)
+        .map((post) => post.link);
+      const newPosts = posts.filter((post) => !existedPosts.includes(post.link));
+      newPosts.forEach((item) => {
         const post = item;
         post.id = url;
         post.postId = uniqueId();
       });
-      const existedPosts = watchedState.content.posts.filter((post) => post.id === url);
-      let newPosts;
-      if (existedPosts.length === 0) {
-        newPosts = [];
-      } else {
-        const { title } = existedPosts[0];
-        const index = findIndex(posts, { title });
-        newPosts = posts.slice(0, index);
-      }
       return newPosts;
     }));
-  return Promise.all(promises).then((newPosts) => {
-    const updatedNewPosts = newPosts.flat();
-    if (updatedNewPosts.length > 0) {
-      watchedState.content.posts = [...updatedNewPosts, ...watchedState.content.posts];
-      watchedState.content.processState = 'updated';
-    }
-  })
-    .catch((e) => {
-      watchedState.content.processState = 'error';
-      watchedState.content.error = e;
+  return Promise.all(promises)
+    .then((newPosts) => {
+      const updatedNewPosts = newPosts.flat();
+      if (updatedNewPosts.length > 0) {
+        state.content.posts = [...updatedNewPosts, ...state.content.posts];
+      }
     })
-    .finally(() => {
-      watchedState.content.processState = 'initial';
-      return setTimeout(() => updateRss(watchedState), 5000);
-    });
+    .catch((e) => {
+      state.addRssProcess = 'failed';
+      state.addRssError = e;
+    })
+    .finally(() => setTimeout(() => updateRss(state), 5000));
 };
 
 export default () => {
-  const i18nInstance = i18next.createInstance();
-  i18nInstance.init({
+  const i18n = i18next.createInstance();
+  i18n.init({
     lng: 'ru',
     debug: false,
     resources: {
@@ -136,27 +125,26 @@ export default () => {
       };
 
       const state = {
-        form: {
-          processState: 'initial',
-          error: null,
-        },
+        formValidationProcess: 'valid',
+        formValidationError: null,
+        addRssProcess: 'initial',
+        addRssError: null,
         content: {
-          processState: 'initial',
           feeds: [],
           posts: [],
-          error: null,
         },
         uiState: {
           currentPost: '',
+          viewedPosts: [],
         },
       };
 
       const watchedState = onChange(state, (path, value) => {
-        render(elements, state, path, value, i18nInstance);
+        render(elements, state, path, value, i18n);
       });
 
-      addRss(elements, watchedState, i18nInstance);
-      handleClick(elements.postsContainer, watchedState);
-      updateRss(watchedState, i18nInstance);
+      addRss(elements, watchedState);
+      viewPost(elements.postsContainer, watchedState);
+      updateRss(watchedState);
     });
 };

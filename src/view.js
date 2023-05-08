@@ -1,49 +1,43 @@
 import { renderFeeds, renderPosts } from './render';
 
-const handleFormProcessState = (elements, processState, i18nInstance) => {
+const handleFormValidationProcess = (elements, validationState) => {
+  const { input, submitButton } = elements;
+  switch (validationState) {
+    case 'valid':
+      break;
+
+    case 'invalid':
+      submitButton.disabled = false;
+      input.readOnly = false;
+      break;
+
+    default:
+      throw new Error(`Unknown validation state: ${validationState}`);
+  }
+};
+
+const handleAddRssProcess = (elements, processState, i18n) => {
   const { input, submitButton, feedbackContainer } = elements;
   switch (processState) {
     case 'initial':
       break;
 
-    case 'sending':
+    case 'adding':
       submitButton.disabled = true;
-      input.disable = true;
+      input.readOnly = true;
       break;
 
-    case 'sent': {
+    case 'successful':
       submitButton.disabled = false;
-      input.disable = false;
-      input.classList.remove('is-invalid');
+      input.readOnly = false;
       feedbackContainer.classList.remove('text-danger');
       feedbackContainer.classList.add('text-success');
-      feedbackContainer.textContent = i18nInstance.t('form.success');
-      break;
-    }
-
-    case 'error':
+      feedbackContainer.textContent = i18n.t('form.success');
       break;
 
-    default:
-      throw new Error(`Unknown process state: ${processState}`);
-  }
-};
-
-const handleContentProcessState = (elements, state, processState, i18nInstance) => {
-  switch (processState) {
-    case 'initial':
-      break;
-
-    case 'added':
-      renderFeeds(elements.feedsContainer, state, i18nInstance);
-      renderPosts(elements.postsContainer, state, i18nInstance);
-      break;
-
-    case 'updated':
-      renderPosts(elements.postsContainer, state, i18nInstance);
-      break;
-
-    case 'error':
+    case 'failed':
+      submitButton.disabled = false;
+      input.readOnly = false;
       break;
 
     default:
@@ -51,33 +45,28 @@ const handleContentProcessState = (elements, state, processState, i18nInstance) 
   }
 };
 
-const renderError = (elements, error, i18nInstance) => {
+const renderError = (elements, error, i18n) => {
   const { input, feedbackContainer } = elements;
+  input.classList.add('is-invalid');
+  feedbackContainer.classList.remove('text-success');
+  feedbackContainer.classList.add('text-danger');
   switch (error.name) {
     case 'ValidationError': {
-      input.classList.add('is-invalid');
-      feedbackContainer.classList.remove('text-success');
-      feedbackContainer.classList.add('text-danger');
-      feedbackContainer.textContent = error.message;
+      feedbackContainer.textContent = i18n.t(error.message);
       break;
     }
 
     case 'AxiosError': {
-      input.classList.remove('is-invalid');
-      feedbackContainer.classList.remove('text-success');
-      feedbackContainer.classList.add('text-danger');
-      feedbackContainer.textContent = i18nInstance.t('content.fail.networkError');
+      feedbackContainer.textContent = i18n.t('content.fail.networkError');
       break;
     }
 
     default:
-      input.classList.remove('is-invalid');
-      feedbackContainer.classList.remove('text-success');
-      feedbackContainer.classList.add('text-danger');
-      if (error.message === i18nInstance.t('content.fail.invalidRss')) {
-        feedbackContainer.textContent = i18nInstance.t('content.fail.invalidRss');
+      if (error.message === 'content.fail.invalidRss') {
+        feedbackContainer.textContent = i18n.t('content.fail.invalidRss');
       } else {
-        feedbackContainer.textContent = i18nInstance.t('content.fail.unknownError');
+        feedbackContainer.textContent = i18n.t('content.fail.unknownError');
+        console.log(error);
       }
       break;
   }
@@ -96,19 +85,27 @@ const renderLinks = (postsContainer, state, id) => {
   modalBody.textContent = description;
 };
 
-const render = (elements, state, path, value, i18nInstance) => {
+const render = (elements, state, path, value, i18n) => {
   switch (path) {
-    case 'form.processState':
-      handleFormProcessState(elements, value, i18nInstance);
+    case 'formValidationProcess':
+      handleFormValidationProcess(elements, value);
       break;
 
-    case 'content.processState':
-      handleContentProcessState(elements, state, value, i18nInstance);
+    case 'addRssProcess':
+      handleAddRssProcess(elements, value, i18n);
       break;
 
-    case 'form.error':
-    case 'content.error':
-      renderError(elements, value, i18nInstance);
+    case 'content.posts':
+      renderPosts(elements.postsContainer, state, value, i18n);
+      break;
+
+    case 'content.feeds':
+      renderFeeds(elements.feedsContainer, value, i18n);
+      break;
+
+    case 'addRssError':
+    case 'formValidationError':
+      renderError(elements, value, i18n);
       break;
 
     case 'uiState.currentPost':

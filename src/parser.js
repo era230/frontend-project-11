@@ -1,9 +1,9 @@
-export default (data, i18nInstance) => {
+export default (data) => {
   const parser = new DOMParser();
   const parsedData = parser.parseFromString(data, 'text/xml');
   const errorNode = parsedData.querySelector('parsererror');
   if (errorNode) {
-    throw new Error(i18nInstance.t('content.fail.invalidRss'));
+    throw new Error('content.fail.invalidRss');
   } else {
     const feedTitle = parsedData.querySelector('channel > title').textContent;
     const feedDescription = parsedData.querySelector('channel > description').textContent;
